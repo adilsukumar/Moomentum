@@ -26,6 +26,15 @@ and dog traits (skull, coat, size, age, body condition, and disease).
 Read [the threshold and validation guide](docs/thresholds-and-validation.md)
 before using the code on an animal.
 
+## Research data
+
+The [`data/` folder](data/README.md) includes an unmodified, CC BY 4.0 canine
+temperature research workbook and a normalized CSV export. It contains paired
+rectal, GI, and infrared surface measurements from 15 usable Labradors across
+rest, sunlight, and cooling. It is **reference data only**: these are not
+neck-contact NTC readings or validated fever-severity labels, and the engine
+does not use this dataset to make clinical claims.
+
 ## Quick use
 
 ```python

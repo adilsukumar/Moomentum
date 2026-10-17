@@ -34,6 +34,7 @@ from sklearn.preprocessing import LabelEncoder
 from features import (
     add_magnitude, build_windows, channel_list, extract_window_features,
     feature_names, NECK_AXES, BACK_AXES, VALID_BEHAVIORS, COARSE_MAP,
+    SAMPLE_RATE_HZ, WINDOW, STRIDE, PURITY,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -46,12 +47,14 @@ ACTIVE_FINE_CLASSES = [b for b, c in COARSE_MAP.items() if c == "Active"]
 
 
 def load_data():
-    all_sensor_cols = NECK_AXES + BACK_AXES
-    dtype = {c: "float32" for c in all_sensor_cols}
+    # The production models are neck-only. Avoid loading the six unused back
+    # channels; with five-second windows this materially lowers peak memory.
+    sensor_cols = NECK_AXES
+    dtype = {c: "float32" for c in sensor_cols}
     dtype.update({"DogID": "int16", "TestNum": "int16", "t_sec": "float32"})
     df = pd.read_csv(
         CSV_PATH,
-        usecols=["DogID", "TestNum", "t_sec", "Behavior_1"] + all_sensor_cols,
+        usecols=["DogID", "TestNum", "t_sec", "Behavior_1"] + sensor_cols,
         dtype=dtype,
     )
     df = df[df["Behavior_1"].isin(VALID_BEHAVIORS)].copy()
@@ -128,6 +131,15 @@ def main():
     print(f"[window] {len(feats):,} windows, {feats.shape[1]} features")
 
     results = {}
+    results["windowing"] = {
+        "sample_rate_hz": SAMPLE_RATE_HZ,
+        "window_samples": WINDOW,
+        "window_seconds": WINDOW / SAMPLE_RATE_HZ,
+        "stride_samples": STRIDE,
+        "stride_seconds": STRIDE / SAMPLE_RATE_HZ,
+        "label_purity_threshold": PURITY,
+        "n_accepted_windows": len(feats),
+    }
 
     print("\n=== Exporting coarse (3-class) model ===")
     results["coarse"] = train_and_export(

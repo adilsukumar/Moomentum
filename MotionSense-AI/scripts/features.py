@@ -10,8 +10,10 @@ import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
 SAMPLE_RATE_HZ = 100
-WINDOW = 100          # 1.0s at 100Hz
-STRIDE = 50           # 50% overlap
+WINDOW_SECONDS = 5.0
+STRIDE_SECONDS = 1.0
+WINDOW = int(WINDOW_SECONDS * SAMPLE_RATE_HZ)
+STRIDE = int(STRIDE_SECONDS * SAMPLE_RATE_HZ)
 MAX_GAP_SEC = 0.015   # break a window run if the timestamp jumps more than this
 PURITY = 0.8          # a window keeps its label only if >=80% of samples agree
 
@@ -60,8 +62,7 @@ def channel_list(use_back: bool):
     return chans
 
 
-def extract_window_features(window_arr):
-    """window_arr: (n_windows, WINDOW, n_channels) -> (n_windows, n_channels*8)."""
+def _extract_window_features_batch(window_arr):
     mean = window_arr.mean(axis=1)
     std = window_arr.std(axis=1)
     mn = window_arr.min(axis=1)
@@ -75,6 +76,19 @@ def extract_window_features(window_arr):
     return np.concatenate(
         [mean, std, mn, mx, rms, zero_cross, dom_freq_bin, dom_power], axis=1
     ).astype(np.float32)
+
+
+def extract_window_features(window_arr, batch_size=2048):
+    """Convert raw windows to features without large temporary allocations."""
+    if len(window_arr) <= batch_size:
+        return _extract_window_features_batch(window_arr)
+    return np.concatenate(
+        [
+            _extract_window_features_batch(window_arr[start:start + batch_size])
+            for start in range(0, len(window_arr), batch_size)
+        ],
+        axis=0,
+    )
 
 
 def feature_names(channels):
