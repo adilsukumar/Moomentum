@@ -1,0 +1,44 @@
+name: Sensor module checks
+on:
+  push:
+    paths:
+      - 'TemperatureSense-AI/**'
+      - 'MotionSense-AI/**'
+      - '.github/workflows/sensor-checks.yml'
+  pull_request:
+    paths:
+      - 'TemperatureSense-AI/**'
+      - 'MotionSense-AI/**'
+      - '.github/workflows/sensor-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  temperature-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install temperature module
+        run: python -m pip install -e ./TemperatureSense-AI
+      - name: Run existing temperature tests
+        working-directory: TemperatureSense-AI
+        run: python -m unittest discover -s tests -v
+      - name: Validate portable source and notebook
+        run: |
+          python -m compileall -q MotionSense-AI/scripts TemperatureSense-AI/scripts
+          python - <<'PY'
+          import csv, json
+          from pathlib import Path
+          notebook = json.loads(Path("MotionSense-AI/MotionSense_Model_A_to_Z.ipynb").read_text())
+          assert notebook["nbformat"] == 4
+          assert all(not c.get("outputs") for c in notebook["cells"] if c["cell_type"] == "code")
+          rows = list(csv.DictReader(Path("TemperatureSense-AI/data/derived/labrador_temperature_phases.csv").open()))
+          assert len(rows) == 45, "Expected 45 attributed phase observations"
+          print("Notebook source and 45-row reference export verified.")
+          PY
